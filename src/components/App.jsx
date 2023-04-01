@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import getData from './../api';
 import Button from './Button/Button';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -7,93 +7,91 @@ import Loader from './Loader/Loader';
 import Modal from './Modal/Modal';
 import { Notify } from 'notiflix';
 
-class App extends Component {
-  state = {
-    photos: [],
-    searchQuery: '',
-    lastQuery: '',
-    isLoading: false,
-    error: null,
-    page: 1,
+const App = () => {
+  const [photos, setPhotos] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [modal, setModal] = useState({
     showModal: false,
     modalPhoto: '',
+  });
+
+  const bottomRef = useRef(null);
+
+  const onSubmit = event => {
+    event.preventDefault();
+    let searchValue = event.target.search.value.trim().toLowerCase();
+    if (searchValue === '') {
+      return Notify.info('Please enter a search phrase.');
+    }
+    if (searchValue === searchQuery) {
+      return Notify.info('You are searching the same phrase! Enter new one');
+    }
+    setSearchQuery(searchValue);
+    setIsLoading(true);
+    setPhotos([]);
+    setPage(1);
   };
 
-  componentDidUpdate(prevProps, prevState) {
-    const { searchQuery, page } = this.state;
-    if (prevState.searchQuery !== searchQuery || prevState.page !== page) {
-      this.getImages(searchQuery, page);
+  useEffect(() => {
+    if (searchQuery) {
+      getImages(searchQuery, page);
     }
-  }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [searchQuery, page]);
 
-  handleSearch = searchQuery => {
-    if (searchQuery === '') {
-      Notify.info('Please enter a search phrase.');
-    }
-    if (searchQuery !== this.state.lastQuery) {
-      this.setState({
-        photos: [],
-        searchQuery,
-        page: 1,
-        lastQuery: searchQuery,
-      });
-    }
-  };
-
-  getImages = async () => {
-    const { searchQuery, page } = this.state;
-    this.setState({ isLoading: true });
+  const getImages = async () => {
+    setIsLoading(true);
     try {
       const photos = await getData.fetchImagesWithQuery(searchQuery, page);
-      this.setState(prevState => ({
-        photos: [...prevState.photos, ...photos],
-      }));
+      setPhotos(prevState => [...prevState, ...photos]);
     } catch (error) {
-      this.setState({ error });
+      setError(error);
     } finally {
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     }
   };
 
-  handleLoadMore = () => {
-    this.setState({ page: this.state.page + 1 });
+  const handleLoadMore = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  handlePhotoClick = photo => {
-    this.setState({
+  const handlePhotoClick = photo => {
+    setModal({
       showModal: true,
       modalPhoto: photo,
     });
   };
 
-  handleModalClose = () => {
-    this.setState({
+  const handleModalClose = () => {
+    setModal({
       showModal: false,
       modalPhoto: '',
     });
   };
 
-  render() {
-    const { photos, isLoading, showModal, modalPhoto } = this.state;
-    return (
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-          gridGap: '16px',
-          paddingBottom: '24px',
-        }}
-      >
-        <Searchbar onSubmit={this.handleSearch} />
-        <ImageGallery photos={photos} onClick={this.handlePhotoClick} />
-        {isLoading && <Loader />}
-        {photos.length > 0 && <Button onClick={this.handleLoadMore} />}
-        {showModal && (
-          <Modal photo={modalPhoto} onClick={this.handleModalClose} />
-        )}
-      </div>
-    );
-  }
-}
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gridGap: '16px',
+        paddingBottom: '24px',
+      }}
+    >
+      <Searchbar onSubmit={onSubmit} />
+      <ImageGallery photos={photos} onClick={handlePhotoClick} />
+      {isLoading && <Loader />}
+      {photos.length > 0 && <Button onClick={handleLoadMore} />}
+      {modal.showModal && (
+        <Modal photo={modal.modalPhoto} onClick={handleModalClose} />
+      )}
+
+      <div ref={bottomRef} />
+    </div>
+  );
+};
 
 export default App;
