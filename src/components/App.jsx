@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import getData from './../api';
 import Button from './Button/Button';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -18,8 +18,6 @@ const App = () => {
     modalPhoto: '',
   });
 
-  const bottomRef = useRef(null);
-
   const onSubmit = event => {
     event.preventDefault();
     let searchValue = event.target.search.value.trim().toLowerCase();
@@ -36,23 +34,22 @@ const App = () => {
   };
 
   useEffect(() => {
+    const getImages = async () => {
+      setIsLoading(true);
+      try {
+        const photos = await getData.fetchImagesWithQuery(searchQuery, page);
+        setPhotos(prevState => [...prevState, ...photos]);
+      } catch (error) {
+        setError(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     if (searchQuery) {
       getImages(searchQuery, page);
     }
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [searchQuery, page]);
-
-  const getImages = async () => {
-    setIsLoading(true);
-    try {
-      const photos = await getData.fetchImagesWithQuery(searchQuery, page);
-      setPhotos(prevState => [...prevState, ...photos]);
-    } catch (error) {
-      setError(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleLoadMore = () => {
     setPage(prevState => prevState + 1);
@@ -83,13 +80,12 @@ const App = () => {
     >
       <Searchbar onSubmit={onSubmit} />
       <ImageGallery photos={photos} onClick={handlePhotoClick} />
+      {error && <p>An error occured</p>}
       {isLoading && <Loader />}
       {photos.length > 0 && <Button onClick={handleLoadMore} />}
       {modal.showModal && (
         <Modal photo={modal.modalPhoto} onClick={handleModalClose} />
       )}
-
-      <div ref={bottomRef} />
     </div>
   );
 };
